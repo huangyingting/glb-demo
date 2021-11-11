@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Install opnsense
-fetch https://raw.githubusercontent.com/huangyingting/glb-demo/master/config.xml
+fetch https://raw.githubusercontent.com/huangyingting/glb-demo/master/opnsense/config.xml
 sed -i "" "s/yyy.yyy.yyy.yyy/$1/" config.xml
 cp config.xml /usr/local/etc/config.xml
 env IGNORE_OSVERSION=yes
@@ -22,7 +22,7 @@ cd ..
 # Fix waagent by replacing configuration settings
 ln -s /usr/local/bin/python3.8 /usr/local/bin/python
 sed -i "" 's/ResourceDisk.EnableSwap=y/ResourceDisk.EnableSwap=n/' /etc/waagent.conf
-fetch https://raw.githubusercontent.com/huangyingting/glb-demo/master/actions_waagent.conf
+fetch https://raw.githubusercontent.com/huangyingting/glb-demo/master/opnsense/actions_waagent.conf
 cp actions_waagent.conf /usr/local/opnsense/service/conf/actions.d
 
 # Remove wrong route at initialization

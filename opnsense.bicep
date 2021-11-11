@@ -323,20 +323,6 @@ resource consumer_nsg 'Microsoft.Network/networkSecurityGroups@2021-03-01' = {
   properties: {
     securityRules: [
       {
-        name: 'Allow-Https'
-        properties: {
-          description: 'Allow-Https'
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          destinationPortRange: '443'
-          sourceAddressPrefix: '*'
-          destinationAddressPrefix: '*'
-          access: 'Allow'
-          priority: 200
-          direction: 'Inbound'
-        }
-      }
-      {
         name: 'Allow-SSH'
         properties: {
           description: 'Allow-SSH'
