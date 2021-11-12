@@ -8,8 +8,8 @@ sed -i "" "s/rrr.rrr.rrr.rrr/$3/" config.xml
 
 cp config.xml /usr/local/etc/config.xml
 env IGNORE_OSVERSION=yes
-pkg bootstrap -f -y
-pkg update -f -y
+env ASSUME_ALWAYS_YES=YES pkg bootstrap -f
+env ASSUME_ALWAYS_YES=YES pkg update -f
 env ASSUME_ALWAYS_YES=YES pkg install ca_root_nss && pkg install -y bash
 fetch https://raw.githubusercontent.com/opnsense/update/master/src/bootstrap/opnsense-bootstrap.sh.in
 sed -i "" 's/#PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config
