@@ -8,7 +8,8 @@ sed -i "" "s/rrr.rrr.rrr.rrr/$3/" config.xml
 
 cp config.xml /usr/local/etc/config.xml
 env IGNORE_OSVERSION=yes
-pkg bootstrap -f; pkg update -f
+pkg bootstrap -f -y
+pkg update -f -y
 env ASSUME_ALWAYS_YES=YES pkg install ca_root_nss && pkg install -y bash
 fetch https://raw.githubusercontent.com/opnsense/update/master/src/bootstrap/opnsense-bootstrap.sh.in
 sed -i "" 's/#PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config
@@ -31,9 +32,13 @@ cp actions_waagent.conf /usr/local/opnsense/service/conf/actions.d
 # Remove wrong route at initialization
 cat > /usr/local/etc/rc.syshook.d/start/25-azure <<EOL
 #!/bin/sh
-route delete 168.63.129.16/32
+route delete 168.63.129.16
+ifconfig vxlan0 down
 ifconfig vxlan0 vxlanlocal $2 vxlanremote $3 vxlanlocalport 10800 vxlanremoteport 10800
+ifconfig vxlan0 up
+ifconfig vxlan1 down
 ifconfig vxlan1 vxlanlocal $2 vxlanremote $3 vxlanlocalport 10801 vxlanremoteport 10801
+ifconfig vxlan1 up
 EOL
 chmod +x /usr/local/etc/rc.syshook.d/start/25-azure
 
