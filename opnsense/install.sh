@@ -3,6 +3,9 @@
 # Install opnsense
 fetch https://raw.githubusercontent.com/huangyingting/glb-demo/master/opnsense/config.xml
 sed -i "" "s/yyy.yyy.yyy.yyy/$1/" config.xml
+sed -i "" "s/lll.lll.lll.lll/$2/" config.xml
+sed -i "" "s/rrr.rrr.rrr.rrr/$3/" config.xml
+
 cp config.xml /usr/local/etc/config.xml
 env IGNORE_OSVERSION=yes
 pkg bootstrap -f; pkg update -f
@@ -26,11 +29,13 @@ fetch https://raw.githubusercontent.com/huangyingting/glb-demo/master/opnsense/a
 cp actions_waagent.conf /usr/local/opnsense/service/conf/actions.d
 
 # Remove wrong route at initialization
-cat > /usr/local/etc/rc.syshook.d/start/22-remoteroute <<EOL
+cat > /usr/local/etc/rc.syshook.d/start/25-azure <<EOL
 #!/bin/sh
-route delete 168.63.129.16
+route delete 168.63.129.16/32
+ifconfig vxlan0 vxlanlocal $2 vxlanremote $3 vxlanlocalport 10800 vxlanremoteport 10800
+ifconfig vxlan1 vxlanlocal $2 vxlanremote $3 vxlanlocalport 10801 vxlanremoteport 10801
 EOL
-chmod +x /usr/local/etc/rc.syshook.d/start/22-remoteroute
+chmod +x /usr/local/etc/rc.syshook.d/start/25-azure
 
 # Add support to LB probe from IP 168.63.129.16
 echo # Add Azure internal vip >> /etc/rc.conf

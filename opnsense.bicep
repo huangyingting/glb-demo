@@ -14,25 +14,28 @@ param consumerVmSize string = 'Standard_A1_v2'
 @description('Location to deploy all the resources in.ex. eastus2euap')
 param location string = 'southeastasia'
 
-var providerVmName = 'ProviderVm'
-var providerNsgName = 'ProviderNsg'
-var providerNicName = 'ProviderNic'
-var providerPipNicName = 'ProviderPipNic'
-var providerPipName = 'ProviderPip'
-var providerVnetName = 'ProviderVnet'
+var providerVmName = 'OPNSense'
+var providerNsgName = 'OPNSenseNsg'
+var providerVmNicName = 'OPNSenseNic'
+var providerVmPrivateIPAddress = '10.110.1.4'
+var providerVmPipNicName = 'OPNSensePipNic'
+var providerVmPipName = 'OPNSensePip'
+var providerVnetName = 'OPNSenseVnet'
 var providerVnetAddressPrefix = '10.110.0.0/16'
-var providerUntrustedSubnetName = 'ProviderUntrustedSubnet'
+var providerUntrustedSubnetName = 'OPNSenseUntrustedSubnet'
 var providerUntrustedSubnetAddressPrefix = '10.110.0.0/24'
-var providerTrustedSubnetName = 'ProviderTrustedSubnet'
+var providerTrustedSubnetName = 'OPNSenseTrustedSubnet'
 var providerTrustedSubnetAddressPrefix = '10.110.1.0/24'
 var providerTrustedSubnetGateway = '10.110.1.1'
-var providerLbName = 'ProviderLb'
+var providerLbName = 'OPNSenseLb'
+var providerLbPrivateIPAddress = '10.110.1.128'
+
 
 
 var consumerVmName = 'ConsumerVm'
 var consumerNsgName = 'ConsumerNsg'
-var consumerNicName = 'ConsumerNic'
-var consumerPipName = 'ConsumerPip'
+var consumerVmNicName = 'ConsumerNic'
+var consumerVmPipName = 'ConsumerPip'
 var consumerVnetName = 'ConsumerVnet'
 var consumerVnetAddressPrefix = '10.120.0.0/16'
 var consumerSubnetName = 'ConsumerSubnet'
@@ -115,7 +118,8 @@ resource provider_lb 'Microsoft.Network/loadBalancers@2021-03-01' = {
       {
         name: 'FeIpCfg'
         properties: {
-          privateIPAllocationMethod: 'Dynamic'
+          privateIPAllocationMethod: 'Static'
+          privateIPAddress: providerLbPrivateIPAddress
           subnet: {
             id: provider_vnet.properties.subnets[1].id
           }
@@ -179,14 +183,15 @@ resource provider_lb 'Microsoft.Network/loadBalancers@2021-03-01' = {
 }
 
 resource provider_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
-  name: providerNicName
+  name: providerVmNicName
   location: location
   properties: {
     ipConfigurations: [
       {
         name: 'ipconfig'
         properties: {
-          privateIPAllocationMethod: 'Dynamic'
+          privateIPAllocationMethod: 'Static'
+          privateIPAddress: providerVmPrivateIPAddress
           subnet: {
             id: provider_vnet.properties.subnets[1].id
           }
@@ -202,7 +207,7 @@ resource provider_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
 }
 
 resource provider_pip 'Microsoft.Network/publicIPAddresses@2021-03-01' = {
-  name: providerPipName
+  name: providerVmPipName
   location: location
   sku: {
     name: 'Standard'
@@ -215,7 +220,7 @@ resource provider_pip 'Microsoft.Network/publicIPAddresses@2021-03-01' = {
 }
 
 resource provider_pip_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
-  name: providerPipNicName
+  name: providerVmPipNicName
   location: location
   properties: {
     ipConfigurations: [
@@ -312,7 +317,7 @@ resource vmext 'Microsoft.Compute/virtualMachines/extensions@2021-07-01' = {
       fileUris: [
         'https://raw.githubusercontent.com/huangyingting/glb-demo/master/opnsense/install.sh'
       ]
-      commandToExecute: 'sh install.sh ${providerTrustedSubnetGateway}'
+      commandToExecute: 'sh install.sh ${providerTrustedSubnetGateway} ${providerVmPrivateIPAddress} ${providerLbPrivateIPAddress}'
     }
   }
 }
@@ -341,7 +346,7 @@ resource consumer_nsg 'Microsoft.Network/networkSecurityGroups@2021-03-01' = {
 }
 
 resource consumer_pip 'Microsoft.Network/publicIPAddresses@2021-03-01' = {
-  name: consumerPipName
+  name: consumerVmPipName
   location: location
   sku: {
     name: 'Standard'
@@ -376,7 +381,7 @@ resource consumer_vnet 'Microsoft.Network/virtualNetworks@2021-03-01' = {
 }
 
 resource consumer_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
-  name: consumerNicName
+  name: consumerVmNicName
   location: location
   properties: {
     ipConfigurations: [
