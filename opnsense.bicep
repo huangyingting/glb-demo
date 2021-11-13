@@ -16,6 +16,7 @@ param location string = 'southeastasia'
 
 var providerVmName = 'OPNSense'
 var providerNsgName = 'OPNSenseNsg'
+var providerNsgSourceAddressPrefix = '167.220.0.0/16'
 var providerVmNicName = 'OPNSenseNic'
 var providerVmPrivateIPAddress = '10.110.1.4'
 var providerVmPipNicName = 'OPNSensePipNic'
@@ -34,6 +35,7 @@ var providerLbPrivateIPAddress = '10.110.1.128'
 
 var consumerVmName = 'ConsumerVm'
 var consumerNsgName = 'ConsumerNsg'
+var consumerNsgSourceAddressPrefix = '167.220.0.0/16'
 var consumerVmNicName = 'ConsumerNic'
 var consumerVmPipName = 'ConsumerPip'
 var consumerVnetName = 'ConsumerVnet'
@@ -53,7 +55,7 @@ resource provider_nsg 'Microsoft.Network/networkSecurityGroups@2021-03-01' = {
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '443'
-          sourceAddressPrefix: '*'
+          sourceAddressPrefix: providerNsgSourceAddressPrefix
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 200
@@ -67,7 +69,7 @@ resource provider_nsg 'Microsoft.Network/networkSecurityGroups@2021-03-01' = {
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '22'
-          sourceAddressPrefix: '*'
+          sourceAddressPrefix: providerNsgSourceAddressPrefix
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 210
@@ -334,7 +336,7 @@ resource consumer_nsg 'Microsoft.Network/networkSecurityGroups@2021-03-01' = {
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '22'
-          sourceAddressPrefix: '*'
+          sourceAddressPrefix: consumerNsgSourceAddressPrefix
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 210

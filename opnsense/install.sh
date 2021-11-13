@@ -30,6 +30,7 @@ fetch https://raw.githubusercontent.com/huangyingting/glb-demo/master/opnsense/a
 cp actions_waagent.conf /usr/local/opnsense/service/conf/actions.d
 
 # Remove wrong route at initialization
+# Tweak opnsense as we need to support non-standard vxlan port
 cat > /usr/local/etc/rc.syshook.d/start/25-azure <<EOL
 #!/bin/sh
 route delete 168.63.129.16
@@ -39,6 +40,8 @@ ifconfig vxlan0 up
 ifconfig vxlan1 down
 ifconfig vxlan1 vxlanlocal $2 vxlanremote $3 vxlanlocalport 10801 vxlanremoteport 10801
 ifconfig vxlan1 up
+ifconfig bridge0 addm vxlan0
+ifconfig bridge0 addm vxlan1
 EOL
 chmod +x /usr/local/etc/rc.syshook.d/start/25-azure
 
