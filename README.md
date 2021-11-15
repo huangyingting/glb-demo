@@ -16,4 +16,4 @@ Azure Gateway Load Balancer Demo
 
 ## Demo guide(OPNSense)
 1. From Azure portal, find OPNSense, https://\<public ip\>, default username is root and password is opnsense
-2. Create a firewall rule from glbint or glbext to block traffics ConumserVm
+2. Create a firewall rule from glbint or glbext interface to block traffic of ConumserVm
