@@ -26,7 +26,7 @@ param keyData string = loadTextContent('key-data')
 @description('Size of the VM')
 param vmSize string = 'Standard_A1_v2'
 
-@description('Location to deploy all the resources in.ex. eastus2euap')
+@description('Location to deploy all the resources')
 param location string = 'southeastasia'
 
 var providerVmName = 'ProviderVm'
