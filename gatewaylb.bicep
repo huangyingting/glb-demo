@@ -20,6 +20,9 @@ iptables -F
 @description('Admin username of os profile')
 param adminUsername string = 'azadmin'
 
+@description('Admin password of os profile')
+param adminPassword string = 'AzureP@ssw0rd'
+
 @description('Admin user ssh key data')
 param keyData string = loadTextContent('key-data')
 
@@ -30,78 +33,62 @@ param vmSize string = 'Standard_A1_v2'
 param location string = 'southeastasia'
 
 var providerVmName = 'ProviderVm'
-var providerNicName = 'ProviderNic'
-var providerPipNicName = 'ProviderPipNic'
-var providerPipName = 'ProviderPip'
+var providerNsgName = 'ProviderNsg'
+var providerNsgSourceAddressPrefix = '167.220.0.0/16'
+var providerVmNicName = 'ProviderNic'
+var providerVmPrivateIPAddress = '10.110.1.4'
+var providerVmPipNicName = 'ProviderPipNic'
+var providerVmPipName = 'ProviderPip'
 var providerVnetName = 'ProviderVnet'
-var providerSubnetName = 'ProviderSubnet'
+var providerVnetAddressPrefix = '10.110.0.0/16'
+var providerUntrustedSubnetName = 'ProviderUntrustedSubnet'
+var providerUntrustedSubnetAddressPrefix = '10.110.0.0/24'
+var providerTrustedSubnetName = 'ProviderTrustedSubnet'
+var providerTrustedSubnetAddressPrefix = '10.110.1.0/24'
 var providerLbName = 'ProviderLb'
-var nsgName = 'DefaultNsg'
-var consumerVmName = 'ConsumerVm'
-var consumerNicName = 'ConsumerNic'
-var consumerPipName = 'ConsumerPip'
-var consumerVnetName = 'ConsumerVnet'
-var consumerSubnetName = 'ConsumerSubnet'
+var providerLbPrivateIPAddress = '10.110.1.128'
 
-resource nsg 'Microsoft.Network/networkSecurityGroups@2021-03-01' = {
-  name: nsgName
+var consumerVmName = 'ConsumerVm'
+var consumerNsgName = 'ConsumerNsg'
+var consumerNsgSourceAddressPrefix = '167.220.0.0/16'
+var consumerVmNicName = 'ConsumerNic'
+var consumerVmPipName = 'ConsumerPip'
+var consumerVnetName = 'ConsumerVnet'
+var consumerVnetAddressPrefix = '10.120.0.0/16'
+var consumerSubnetName = 'ConsumerSubnet'
+var consumerSubnetAddressPrefix = '10.120.0.0/24'
+
+resource provider_nsg 'Microsoft.Network/networkSecurityGroups@2021-03-01' = {
+  name: providerNsgName
   location: location
   properties: {
     securityRules: [
       {
-        name: 'Tcp-Inbound-Allow-All'
+        name: 'Allow-Https'
         properties: {
-          description: 'Tcp-Inbound-Allow-All'
+          description: 'Allow-Https'
           protocol: 'Tcp'
-          sourcePortRange: '0-65535'
-          destinationPortRange: '0-65535'
-          sourceAddressPrefix: '0.0.0.0/0'
-          destinationAddressPrefix: '0.0.0.0/0'
+          sourcePortRange: '*'
+          destinationPortRange: '443'
+          sourceAddressPrefix: providerNsgSourceAddressPrefix
+          destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 200
           direction: 'Inbound'
         }
       }
       {
-        name: 'Tcp-Outbound-Allow-All'
+        name: 'Allow-SSH'
         properties: {
-          description: 'Tcp-Outbound-Allow-All'
+          description: 'Allow-SSH'
           protocol: 'Tcp'
-          sourcePortRange: '0-65535'
-          destinationPortRange: '0-65535'
-          sourceAddressPrefix: '0.0.0.0/0'
-          destinationAddressPrefix: '0.0.0.0/0'
+          sourcePortRange: '*'
+          destinationPortRange: '22'
+          sourceAddressPrefix: providerNsgSourceAddressPrefix
+          destinationAddressPrefix: '*'
           access: 'Allow'
-          priority: 200
-          direction: 'Outbound'
-        }
-      }
-      {
-        name: 'Udp-Inbound-Allow-All'
-        properties: {
-          description: 'Udp-Inbound-Allow-All'
-          protocol: 'Udp'
-          sourcePortRange: '0-65535'
-          destinationPortRange: '0-65535'
-          sourceAddressPrefix: '0.0.0.0/0'
-          destinationAddressPrefix: '0.0.0.0/0'
-          access: 'Allow'
-          priority: 300
+          priority: 210
           direction: 'Inbound'
-        }
-      }
-      {
-        name: 'Udp-Outbound-Allow-All'
-        properties: {
-          description: 'Udp-Outbound-Allow-All'
-          protocol: 'Udp'
-          sourcePortRange: '0-65535'
-          destinationPortRange: '0-65535'
-          sourceAddressPrefix: '0.0.0.0/0'
-          destinationAddressPrefix: '0.0.0.0/0'
-          access: 'Allow'
-          priority: 300
-          direction: 'Outbound'
         }
       }
     ]
@@ -114,19 +101,25 @@ resource provider_vnet 'Microsoft.Network/virtualNetworks@2021-03-01' = {
   properties: {
     addressSpace: {
       addressPrefixes: [
-        '10.55.0.0/16'
+        providerVnetAddressPrefix
       ]
     }
     subnets: [
       {
-        name: providerSubnetName
+        name: providerUntrustedSubnetName
         properties: {
-          addressPrefix: '10.55.0.0/24'
+          addressPrefix: providerUntrustedSubnetAddressPrefix
           networkSecurityGroup: {
-            id: nsg.id
+            id: provider_nsg.id
           }
         }
       }
+      {
+        name: providerTrustedSubnetName
+        properties: {
+          addressPrefix: providerTrustedSubnetAddressPrefix
+        }
+      }      
     ]
   }
 }
@@ -143,9 +136,9 @@ resource provider_lb 'Microsoft.Network/loadBalancers@2021-03-01' = {
         name: 'FeIpCfg'
         properties: {
           privateIPAllocationMethod: 'Static'
-          privateIPAddress: '10.55.0.128'
+          privateIPAddress: providerLbPrivateIPAddress
           subnet: {
-            id: provider_vnet.properties.subnets[0].id
+            id: provider_vnet.properties.subnets[1].id
           }
         }
       }
@@ -207,7 +200,7 @@ resource provider_lb 'Microsoft.Network/loadBalancers@2021-03-01' = {
 }
 
 resource provider_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
-  name: providerNicName
+  name: providerVmNicName
   location: location
   properties: {
     ipConfigurations: [
@@ -215,9 +208,9 @@ resource provider_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
         name: 'ipconfig'
         properties: {
           privateIPAllocationMethod: 'Static'
-          privateIPAddress: '10.55.0.4'
+          privateIPAddress: providerVmPrivateIPAddress
           subnet: {
-            id: provider_vnet.properties.subnets[0].id
+            id: provider_vnet.properties.subnets[1].id
           }
           loadBalancerBackendAddressPools: [
             {
@@ -231,7 +224,7 @@ resource provider_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
 }
 
 resource provider_pip 'Microsoft.Network/publicIPAddresses@2021-03-01' = {
-  name: providerPipName
+  name: providerVmPipName
   location: location
   sku: {
     name: 'Standard'
@@ -244,15 +237,14 @@ resource provider_pip 'Microsoft.Network/publicIPAddresses@2021-03-01' = {
 }
 
 resource provider_pip_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
-  name: providerPipNicName
+  name: providerVmPipNicName
   location: location
   properties: {
     ipConfigurations: [
       {
         name: 'ipconfigPip'
         properties: {
-          privateIPAllocationMethod: 'Static'
-          privateIPAddress: '10.55.0.5'
+          privateIPAllocationMethod: 'Dynamic'
           publicIPAddress: {
             id: provider_pip.id
           }
@@ -267,9 +259,19 @@ resource provider_pip_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
     enableAcceleratedNetworking: false
     enableIPForwarding: false
     networkSecurityGroup: {
-      id: nsg.id
+      id: provider_nsg.id
     }
   }
+}
+
+resource provider_diag_sa 'Microsoft.Storage/storageAccounts@2021-04-01' = {
+  name: uniqueString(providerVmName, deployment().name)
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {}
 }
 
 resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
@@ -279,6 +281,12 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
     hardwareProfile: {
       vmSize: vmSize
     }
+    diagnosticsProfile: {
+      bootDiagnostics: {
+        enabled: true
+        storageUri: provider_diag_sa.properties.primaryEndpoints.blob
+      }
+    }    
     storageProfile: {
       imageReference: {
         publisher: 'Canonical'
@@ -302,7 +310,8 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
       adminUsername: adminUsername
       customData: loadFileAsBase64('user-data.yml')
       linuxConfiguration: {
-        disablePasswordAuthentication: true
+        disablePasswordAuthentication: false
+        /*
         ssh: {
           publicKeys: [
             {
@@ -311,6 +320,7 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
             }
           ]
         }
+        */
         provisionVMAgent: true
         patchSettings: {
           patchMode: 'ImageDefault'
@@ -337,8 +347,31 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
   }
 }
 
+resource consumer_nsg 'Microsoft.Network/networkSecurityGroups@2021-03-01' = {
+  name: consumerNsgName
+  location: location
+  properties: {
+    securityRules: [
+      {
+        name: 'Allow-SSH'
+        properties: {
+          description: 'Allow-SSH'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '22'
+          sourceAddressPrefix: consumerNsgSourceAddressPrefix
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 210
+          direction: 'Inbound'
+        }
+      }
+    ]
+  }
+}
+
 resource consumer_pip 'Microsoft.Network/publicIPAddresses@2021-03-01' = {
-  name: consumerPipName
+  name: consumerVmPipName
   location: location
   sku: {
     name: 'Standard'
@@ -355,16 +388,16 @@ resource consumer_vnet 'Microsoft.Network/virtualNetworks@2021-03-01' = {
   properties: {
     addressSpace: {
       addressPrefixes: [
-        '10.2.0.0/16'
+        consumerVnetAddressPrefix
       ]
     }
     subnets: [
       {
         name: consumerSubnetName
         properties: {
-          addressPrefix: '10.2.0.0/24'
+          addressPrefix: consumerSubnetAddressPrefix
           networkSecurityGroup: {
-            id: nsg.id
+            id: consumer_nsg.id
           }
         }
       }
@@ -373,15 +406,14 @@ resource consumer_vnet 'Microsoft.Network/virtualNetworks@2021-03-01' = {
 }
 
 resource consumer_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
-  name: consumerNicName
+  name: consumerVmNicName
   location: location
   properties: {
     ipConfigurations: [
       {
         name: 'ipconfigPip'
         properties: {
-          privateIPAllocationMethod: 'Static'
-          privateIPAddress: '10.2.0.4'
+          privateIPAllocationMethod: 'Dynamic'
           subnet: {
             id: consumer_vnet.properties.subnets[0].id
           }
@@ -397,6 +429,16 @@ resource consumer_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
   }
 }
 
+resource customer_diag_sa 'Microsoft.Storage/storageAccounts@2021-04-01' = {
+  name: uniqueString(providerVmName, deployment().name)
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {}
+}
+
 resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
   name: consumerVmName
   location: location
@@ -407,8 +449,11 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
     osProfile: {
       computerName: consumerVmName
       adminUsername: adminUsername
+      adminPassword: adminPassword
+      
       linuxConfiguration: {
-        disablePasswordAuthentication: true
+        disablePasswordAuthentication: false
+        /*
         ssh: {
           publicKeys: [
             {
@@ -417,12 +462,19 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
             }
           ]
         }
+        */
         provisionVMAgent: true
         patchSettings: {
           patchMode: 'ImageDefault'
         }
-      }
+      }      
     }
+    diagnosticsProfile: {
+      bootDiagnostics: {
+        enabled: true
+        storageUri: customer_diag_sa.properties.primaryEndpoints.blob
+      }
+    }      
     storageProfile: {
       imageReference: {
         publisher: 'Canonical'

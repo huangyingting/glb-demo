@@ -307,7 +307,7 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
   }
 }
 
-resource vmext 'Microsoft.Compute/virtualMachines/extensions@2021-07-01' = {
+resource provider_vmext 'Microsoft.Compute/virtualMachines/extensions@2021-07-01' = {
   name: '${provider_vm.name}/CustomScript'
   location: resourceGroup().location
   properties: {
