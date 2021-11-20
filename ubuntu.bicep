@@ -20,8 +20,8 @@ iptables -F
 @description('Admin username of os profile')
 param adminUsername string = 'azadmin'
 
-@description('Admin password of os profile')
-param adminPassword string = 'AzureP@ssw0rd'
+//@description('Admin password of os profile')
+//param adminPassword string = ''
 
 @description('Admin user ssh key data')
 param keyData string = loadTextContent('key-data')
@@ -29,8 +29,11 @@ param keyData string = loadTextContent('key-data')
 @description('Size of the VM')
 param vmSize string = 'Standard_A1_v2'
 
-@description('Location to deploy all the resources in.ex. eastus2euap')
+@description('Location to deploy all the resources in')
 param location string = 'southeastasia'
+
+@description('Outbound only mode?')
+param outboundOnly bool = false
 
 var providerVmName = 'ProviderVm'
 var providerNsgName = 'ProviderNsg'
@@ -274,7 +277,7 @@ resource provider_diag_sa 'Microsoft.Storage/storageAccounts@2021-04-01' = {
   properties: {}
 }
 
-resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
+resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {  
   name: providerVmName
   location: location
   properties: {
@@ -308,10 +311,10 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
     osProfile: {
       computerName: providerVmName
       adminUsername: adminUsername
-      customData: loadFileAsBase64('user-data.yml')
+      //adminPassword: adminPassword
+      customData: outboundOnly? base64(format(loadTextContent('ubuntu-outbound.yml'), consumer_pip.properties.ipAddress)) : base64(format(loadTextContent('ubuntu-tunnel.yml'), consumer_pip.properties.ipAddress))
       linuxConfiguration: {
         disablePasswordAuthentication: false
-        /*
         ssh: {
           publicKeys: [
             {
@@ -320,7 +323,6 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
             }
           ]
         }
-        */
         provisionVMAgent: true
         patchSettings: {
           patchMode: 'ImageDefault'
@@ -429,8 +431,8 @@ resource consumer_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
   }
 }
 
-resource customer_diag_sa 'Microsoft.Storage/storageAccounts@2021-04-01' = {
-  name: uniqueString(providerVmName, deployment().name)
+resource consumer_diag_sa 'Microsoft.Storage/storageAccounts@2021-04-01' = {
+  name: uniqueString(consumerVmName, deployment().name)
   location: location
   sku: {
     name: 'Standard_LRS'
@@ -449,11 +451,9 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
     osProfile: {
       computerName: consumerVmName
       adminUsername: adminUsername
-      adminPassword: adminPassword
-      
+      //adminPassword: adminPassword      
       linuxConfiguration: {
         disablePasswordAuthentication: false
-        /*
         ssh: {
           publicKeys: [
             {
@@ -462,7 +462,6 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
             }
           ]
         }
-        */
         provisionVMAgent: true
         patchSettings: {
           patchMode: 'ImageDefault'
@@ -472,7 +471,7 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
     diagnosticsProfile: {
       bootDiagnostics: {
         enabled: true
-        storageUri: customer_diag_sa.properties.primaryEndpoints.blob
+        storageUri: consumer_diag_sa.properties.primaryEndpoints.blob
       }
     }      
     storageProfile: {
