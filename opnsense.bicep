@@ -10,8 +10,7 @@ param providerVmSize string = 'Standard_A2_v2'
 @description('Size of consumer VM')
 param consumerVmSize string = 'Standard_A1_v2'
 
-
-@description('Location to deploy all the resources')
+@description('Location to deploy all the resources in')
 param location string = 'southeastasia'
 
 var providerVmName = 'OPNSense'
