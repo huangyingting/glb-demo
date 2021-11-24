@@ -9,7 +9,7 @@ write_files:
       # eth0 wan interface
       # eth1 lan interface which receives vxlan from gateway load balancer      
       if [ "$IFACE" == "eth1" ]; then
-        route add -host 168.63.129.16 gw 10.110.1.1 dev $IFACE metric 80
+        ip route add 168.63.129.16/32 metric 80 dev $IFACE via 10.110.1.1
         ip link add glbint type vxlan id 800 remote 10.110.1.128 dstport 10800 dev $IFACE
         ip link set glbint up
         ip link add glbext type vxlan id 801 remote 10.110.1.128 dstport 10801 dev $IFACE

@@ -20,14 +20,17 @@ iptables -F
 @description('Admin username of os profile')
 param adminUsername string = 'azadmin'
 
-//@description('Admin password of os profile')
-//param adminPassword string = ''
+@description('Admin password of os profile')
+param adminPassword string = 'AzureP@ssw0rd'
 
 @description('Admin user ssh key data')
 param keyData string = loadTextContent('key-data')
 
-@description('Size of the VM')
-param vmSize string = 'Standard_A1_v2'
+@description('Size of provider VM')
+param providerVmSize string = 'Standard_A2_v2'
+
+@description('Size of consumer VM')
+param consumerVmSize string = 'Standard_A1_v2'
 
 @description('Location to deploy all the resources in')
 param location string = 'southeastasia'
@@ -282,7 +285,7 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
   location: location
   properties: {
     hardwareProfile: {
-      vmSize: vmSize
+      vmSize: providerVmSize
     }
     diagnosticsProfile: {
       bootDiagnostics: {
@@ -303,18 +306,19 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
         createOption: 'FromImage'
         caching: 'ReadWrite'
         managedDisk: {
-          storageAccountType: 'StandardSSD_LRS'
+          storageAccountType: 'Standard_LRS'
         }
-        diskSizeGB: 30
+        diskSizeGB: 64
       }
     }
     osProfile: {
       computerName: providerVmName
       adminUsername: adminUsername
-      //adminPassword: adminPassword
+      adminPassword: adminPassword
       customData: outboundOnly? base64(format(loadTextContent('ubuntu-outbound.yml'), consumer_pip.properties.ipAddress)) : base64(format(loadTextContent('ubuntu-tunnel.yml'), consumer_pip.properties.ipAddress))
       linuxConfiguration: {
         disablePasswordAuthentication: false
+        /*
         ssh: {
           publicKeys: [
             {
@@ -323,12 +327,18 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
             }
           ]
         }
+        */
         provisionVMAgent: true
         patchSettings: {
           patchMode: 'ImageDefault'
         }
       }
       allowExtensionOperations: true
+    }
+    priority: 'Spot'
+    evictionPolicy: 'Deallocate'
+    billingProfile: {
+      maxPrice: any(-1)
     }
     networkProfile: {
       networkInterfaces: [
@@ -446,14 +456,15 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
   location: location
   properties: {
     hardwareProfile: {
-      vmSize: vmSize
+      vmSize: consumerVmSize
     }
     osProfile: {
       computerName: consumerVmName
       adminUsername: adminUsername
-      //adminPassword: adminPassword      
+      adminPassword: adminPassword      
       linuxConfiguration: {
         disablePasswordAuthentication: false
+        /*
         ssh: {
           publicKeys: [
             {
@@ -462,6 +473,7 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
             }
           ]
         }
+        */
         provisionVMAgent: true
         patchSettings: {
           patchMode: 'ImageDefault'
@@ -487,9 +499,9 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
         createOption: 'FromImage'
         caching: 'ReadWrite'
         managedDisk: {
-          storageAccountType: 'StandardSSD_LRS'
+          storageAccountType: 'Standard_LRS'
         }
-        diskSizeGB: 30
+        diskSizeGB: 32
       }
     }
     priority: 'Spot'

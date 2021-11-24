@@ -1,36 +1,55 @@
+// az group create -l southeastasia -n GLB
+// az deployment group create -g GLB --template-file gatewaylb.bicep
+
+/* 
+// Drop forwarded port 22 traffic
+iptables -A FORWARD -p tcp --dport 22 -j DROP
+iptables -A FORWARD -i br0 -p tcp -d {consumer vm public ip} --dport 22 -j DROP
+*/
+
+/* 
+// Enable iptables forward logging
+iptables -A FORWARD -j LOG --log-prefix "IPTables: " --log-level 4
+*/
+
+/* 
+// Clear all iptables rules
+iptables -F
+*/
+
 @description('Admin username of os profile')
 param adminUsername string = 'azadmin'
+
+@description('Admin password of os profile')
+param adminPassword string = 'AzureP@ssw0rd'
 
 @description('Admin user ssh key data')
 param keyData string = loadTextContent('key-data')
 
-@description('Size of provider VM')
-param providerVmSize string = 'Standard_A2_v2'
-
-@description('Size of consumer VM')
-param consumerVmSize string = 'Standard_A1_v2'
+@description('Size of the VM')
+param vmSize string = 'Standard_A1_v2'
 
 @description('Location to deploy all the resources in')
 param location string = 'southeastasia'
 
-var providerVmName = 'OPNSense'
-var providerNsgName = 'OPNSenseNsg'
+@description('Outbound only mode?')
+param outboundOnly bool = false
+
+var providerVmName = 'ProviderVm'
+var providerNsgName = 'ProviderNsg'
 var providerNsgSourceAddressPrefix = '167.220.0.0/16'
-var providerVmNicName = 'OPNSenseNic'
+var providerVmNicName = 'ProviderNic'
 var providerVmPrivateIPAddress = '10.110.1.4'
-var providerVmPipNicName = 'OPNSensePipNic'
-var providerVmPipName = 'OPNSensePip'
-var providerVnetName = 'OPNSenseVnet'
+var providerVmPipNicName = 'ProviderPipNic'
+var providerVmPipName = 'ProviderPip'
+var providerVnetName = 'ProviderVnet'
 var providerVnetAddressPrefix = '10.110.0.0/16'
-var providerUntrustedSubnetName = 'OPNSenseUntrustedSubnet'
+var providerUntrustedSubnetName = 'ProviderUntrustedSubnet'
 var providerUntrustedSubnetAddressPrefix = '10.110.0.0/24'
-var providerTrustedSubnetName = 'OPNSenseTrustedSubnet'
+var providerTrustedSubnetName = 'ProviderTrustedSubnet'
 var providerTrustedSubnetAddressPrefix = '10.110.1.0/24'
-var providerTrustedSubnetGateway = '10.110.1.1'
-var providerLbName = 'OPNSenseLb'
+var providerLbName = 'ProviderLb'
 var providerLbPrivateIPAddress = '10.110.1.128'
-
-
 
 var consumerVmName = 'ConsumerVm'
 var consumerNsgName = 'ConsumerNsg'
@@ -248,18 +267,34 @@ resource provider_pip_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
   }
 }
 
-resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
+resource provider_diag_sa 'Microsoft.Storage/storageAccounts@2021-04-01' = {
+  name: uniqueString(providerVmName, deployment().name)
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {}
+}
+
+resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {  
   name: providerVmName
   location: location
   properties: {
     hardwareProfile: {
-      vmSize: providerVmSize
+      vmSize: vmSize
     }
+    diagnosticsProfile: {
+      bootDiagnostics: {
+        enabled: true
+        storageUri: provider_diag_sa.properties.primaryEndpoints.blob
+      }
+    }    
     storageProfile: {
       imageReference: {
-        publisher: 'MicrosoftOSTC'
-        offer: 'FreeBSD'
-        sku: '12.0'
+        publisher: 'canonical'
+        offer: '0001-com-ubuntu-server-focal'
+        sku: '20_04-lts'
         version: 'latest'
       }
       osDisk: {
@@ -270,14 +305,17 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
         managedDisk: {
           storageAccountType: 'Standard_LRS'
         }
-        diskSizeGB: 32
+        diskSizeGB: 64
       }
     }
     osProfile: {
       computerName: providerVmName
       adminUsername: adminUsername
+      adminPassword: adminPassword
+      customData: outboundOnly? base64(format(loadTextContent('ubuntu-outbound.yml'), consumer_pip.properties.ipAddress)) : base64(format(loadTextContent('ubuntu-tunnel.yml'), consumer_pip.properties.ipAddress))
       linuxConfiguration: {
-        disablePasswordAuthentication: true
+        disablePasswordAuthentication: false
+        /*
         ssh: {
           publicKeys: [
             {
@@ -286,7 +324,13 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
             }
           ]
         }
+        */
+        provisionVMAgent: true
+        patchSettings: {
+          patchMode: 'ImageDefault'
+        }
       }
+      allowExtensionOperations: true
     }
     priority: 'Spot'
     evictionPolicy: 'Deallocate'
@@ -308,23 +352,6 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
           }
         }
       ]
-    }
-  }
-}
-
-resource provider_vmext 'Microsoft.Compute/virtualMachines/extensions@2021-07-01' = {
-  name: '${provider_vm.name}/CustomScript'
-  location: resourceGroup().location
-  properties: {
-    publisher: 'Microsoft.OSTCExtensions'
-    type: 'CustomScriptForLinux'
-    typeHandlerVersion: '1.4'
-    autoUpgradeMinorVersion: false
-    settings:{
-      fileUris: [
-        'https://raw.githubusercontent.com/huangyingting/glb-demo/master/opnsense/install.sh'
-      ]
-      commandToExecute: 'sh install.sh ${providerTrustedSubnetGateway} ${providerVmPrivateIPAddress} ${providerLbPrivateIPAddress}'
     }
   }
 }
@@ -411,18 +438,30 @@ resource consumer_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
   }
 }
 
+resource consumer_diag_sa 'Microsoft.Storage/storageAccounts@2021-04-01' = {
+  name: uniqueString(consumerVmName, deployment().name)
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  properties: {}
+}
+
 resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
   name: consumerVmName
   location: location
   properties: {
     hardwareProfile: {
-      vmSize: consumerVmSize
+      vmSize: vmSize
     }
     osProfile: {
       computerName: consumerVmName
       adminUsername: adminUsername
+      adminPassword: adminPassword      
       linuxConfiguration: {
-        disablePasswordAuthentication: true
+        disablePasswordAuthentication: false
+        /*
         ssh: {
           publicKeys: [
             {
@@ -431,8 +470,19 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
             }
           ]
         }
-      }
+        */
+        provisionVMAgent: true
+        patchSettings: {
+          patchMode: 'ImageDefault'
+        }
+      }      
     }
+    diagnosticsProfile: {
+      bootDiagnostics: {
+        enabled: true
+        storageUri: consumer_diag_sa.properties.primaryEndpoints.blob
+      }
+    }      
     storageProfile: {
       imageReference: {
         publisher: 'Canonical'
@@ -468,3 +518,6 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
     }
   }
 }
+
+//output comsumerVMPublicIp string = consumer_pip.properties.ipAddress
+//output providerVMPublicIp string = provider_pip.properties.ipAddress
