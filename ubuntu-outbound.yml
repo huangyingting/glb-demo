@@ -26,6 +26,7 @@ write_files:
         # modprobe br_netfilter
         # sysctl -w net.bridge.bridge-nf-call-iptables=1
         sysctl -w net.ipv4.ip_forward=1
+        sysctl -w net.ipv4.conf.all.route_localnet=1
         for i in /proc/sys/net/ipv4/conf/*/rp_filter; do
           echo 0 > "$i"
         done
@@ -33,7 +34,7 @@ write_files:
         ebtables -t broute -A BROUTING -p IPv4 --ip-proto tcp --ip-src {0} --ip-dport 80 -j redirect --redirect-target DROP
         iptables -t nat -A POSTROUTING -p tcp -s {0} --dport 80 -o eth0 -j MASQUERADE
         ip route add {0} dev br0
-        arp -s {0} 12:34:56:78:9a:bc
+        ip neigh add {0}} dev br0 lladdr 12:34:56:78:9a:bc
       fi
   - path: /usr/lib/networkd-dispatcher/off.d/90-vxlan-down
     owner: root:root
