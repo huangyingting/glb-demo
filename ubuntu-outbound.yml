@@ -9,7 +9,8 @@ write_files:
       # eth0 wan interface
       # eth1 lan interface which receives vxlan from gateway load balancer
       if [ "$IFACE" == "eth1" ]; then
-        ip route add 168.63.129.16/32 metric 80 dev $IFACE via 10.110.1.1
+        ip rule add from ${{IP_ADDRS%% *}} to 168.63.129.16 lookup glbrt
+        ip route add 168.63.129.16 via 10.110.1.1 dev $IFACE table glbrt   
         ip link add glbint type vxlan id 800 remote 10.110.1.128 dstport 10800 dev $IFACE
         ip link set glbint up
         ip link add glbext type vxlan id 801 remote 10.110.1.128 dstport 10801 dev $IFACE
@@ -31,10 +32,10 @@ write_files:
           echo 0 > "$i"
         done
         # To implement bridge mode
-        ebtables -t broute -A BROUTING -p IPv4 --ip-proto tcp --ip-src {0} --ip-dport 80 -j redirect --redirect-target DROP
-        iptables -t nat -A POSTROUTING -p tcp -s {0} --dport 80 -o eth0 -j MASQUERADE
         ip route add {0} dev br0
         ip neigh add {0}} dev br0 lladdr 12:34:56:78:9a:bc
+        ebtables -t broute -A BROUTING -p IPv4 --ip-proto tcp --ip-src {0} --ip-dport 80 -j redirect --redirect-target DROP
+        iptables -t nat -A POSTROUTING -p tcp -s {0} --dport 80 -o eth0 -j MASQUERADE
       fi
   - path: /usr/lib/networkd-dispatcher/off.d/90-vxlan-down
     owner: root:root
@@ -48,3 +49,7 @@ write_files:
         ip link delete glbext type vxlan
         ip link delete glbint type vxlan
       fi
+  - path: /etc/iproute2/rt_tables
+    content: |
+      128 glbrt 
+    append: true

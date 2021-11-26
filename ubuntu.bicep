@@ -42,11 +42,8 @@ param consumerVmSize string = 'Standard_A1_v2'
 @description('Location to deploy all the resources in')
 param location string = 'southeastasia'
 
-var customDataMap = {
-  'tunnel': 'ubuntu-tunnel.yml'
-  'outbound': 'ubuntu-outbound.yml'
-  'squid': 'ubuntu-squid.yml'
-}
+
+var customDataFile = 'ubuntu-squid.yml'
 
 var ubuntuImageMap = {
   '18.04': {
@@ -340,8 +337,7 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
       computerName: providerVmName
       adminUsername: adminUsername
       adminPassword: (!empty(adminPassword) ? adminPassword : json('null'))
-      //customData: outboundOnly ? base64(format(loadTextContent('ubuntu-outbound.yml'), consumer_pip.properties.ipAddress)) : base64(format(loadTextContent('ubuntu-squid.yml'), consumer_pip.properties.ipAddress))
-      customData: base64(format(loadTextContent(customDataMap['squid']), consumer_pip.properties.ipAddress))
+      customData: base64(format(loadTextContent(customDataFile), consumer_pip.properties.ipAddress))
       linuxConfiguration: (!empty(adminPassword) ? {
         disablePasswordAuthentication: false
         provisionVMAgent: true

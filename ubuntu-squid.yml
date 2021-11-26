@@ -13,7 +13,8 @@ write_files:
       # eth0 wan interface
       # eth1 lan interface which receives vxlan from gateway load balancer      
       if [ "$IFACE" == "eth1" ]; then
-        ip route add 168.63.129.16/32 metric 80 dev $IFACE via 10.110.1.1
+        ip rule add from ${{IP_ADDRS%% *}} to 168.63.129.16 lookup glbrt
+        ip route add 168.63.129.16 via 10.110.1.1 dev $IFACE table glbrt   
         ip link add glbint type vxlan id 800 remote 10.110.1.128 dstport 10800 dev $IFACE
         ip link set glbint up
         ip link add glbext type vxlan id 801 remote 10.110.1.128 dstport 10801 dev $IFACE
@@ -50,5 +51,9 @@ write_files:
         ip link delete glbext type vxlan
         ip link delete glbint type vxlan
       fi
+  - path: /etc/iproute2/rt_tables
+    content: |
+      128 glbrt 
+    append: true
 runcmd:
   - docker run -d --restart unless-stopped -e LOCAL_NET={0} --net=host --name squid huangyingting/squid-ssl
