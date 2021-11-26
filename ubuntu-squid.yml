@@ -1,4 +1,12 @@
 #cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - docker
+  - docker-engine
+  - docker.io
+  - containerd
+  - runc
 write_files:
   - path: /usr/lib/networkd-dispatcher/routable.d/90-vxlan-up
     owner: root:root
@@ -27,10 +35,12 @@ write_files:
         for i in /proc/sys/net/ipv4/conf/*/rp_filter; do
           echo 0 > "$i"
         done
-        ebtables -t broute -A BROUTING -p IPv4 --ip-proto tcp --ip-src {0} --ip-dport 80 -j redirect --redirect-target DROP
-        iptables -t nat -A POSTROUTING -p tcp -s {0} --dport 80 -o eth0 -j MASQUERADE
         ip route add {0} dev br0
         ip neigh add {0}} dev br0 lladdr 12:34:56:78:9a:bc
+        ebtables -t broute -A BROUTING -p IPv4 --ip-proto tcp --ip-src {0} --ip-dport 80 -j redirect --redirect-target DROP
+        iptables -t nat -A PREROUTING -p tcp -s {0} --dport 80 -j DNAT --to 127.0.0.1:3138
+        ebtables -t broute -A BROUTING -p IPv4 --ip-proto tcp --ip-src {0} --ip-dport 443 -j redirect --redirect-target DROP
+        iptables -t nat -A PREROUTING -p tcp -s {0} --dport 443 -j DNAT --to 127.0.0.1:3148
       fi
   - path: /usr/lib/networkd-dispatcher/off.d/90-vxlan-down
     owner: root:root
@@ -44,3 +54,5 @@ write_files:
         ip link delete glbext type vxlan
         ip link delete glbint type vxlan
       fi
+runcmd:
+  - docker run -d --restart unless-stopped -e LOCAL_NET="{0}" --name squid --net=host huangyingting/squid-ssl
