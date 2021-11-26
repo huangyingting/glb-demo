@@ -26,6 +26,13 @@ param adminPassword string = 'AzureP@ssw0rd'
 @description('Admin user ssh key data')
 param keyData string = loadTextContent('key-data')
 
+@description('Ubuntu version')
+@allowed([
+  '18.04'
+  '20.04'
+])
+param ubuntuVersion string = '18.04'
+
 @description('Size of provider VM')
 param providerVmSize string = 'Standard_A2_v2'
 
@@ -35,8 +42,26 @@ param consumerVmSize string = 'Standard_A1_v2'
 @description('Location to deploy all the resources in')
 param location string = 'southeastasia'
 
-@description('Outbound only mode?')
-param outboundOnly bool = false
+var customDataMap = {
+  'tunnel': 'ubuntu-tunnel.yml'
+  'outbound': 'ubuntu-outbound.yml'
+  'squid': 'ubuntu-squid.yml'
+}
+
+var ubuntuImageMap = {
+  '18.04': {
+    publisher: 'Canonical'
+    offer: 'UbuntuServer'
+    sku: '18.04-LTS'
+    version: 'latest'
+  }
+  '20.04': {
+    publisher: 'canonical'
+    offer: '0001-com-ubuntu-server-focal'
+    sku: '20_04-lts'
+    version: 'latest'
+  }
+}
 
 var providerVmName = 'ProviderVm'
 var providerNsgName = 'ProviderNsg'
@@ -125,7 +150,7 @@ resource provider_vnet 'Microsoft.Network/virtualNetworks@2021-03-01' = {
         properties: {
           addressPrefix: providerTrustedSubnetAddressPrefix
         }
-      }      
+      }
     ]
   }
 }
@@ -280,7 +305,7 @@ resource provider_diag_sa 'Microsoft.Storage/storageAccounts@2021-04-01' = {
   properties: {}
 }
 
-resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {  
+resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
   name: providerVmName
   location: location
   properties: {
@@ -292,13 +317,13 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
         enabled: true
         storageUri: provider_diag_sa.properties.primaryEndpoints.blob
       }
-    }    
+    }
     storageProfile: {
       imageReference: {
-        publisher: 'Canonical'
-        offer: 'UbuntuServer'
-        sku: '18.04-LTS'
-        version: 'latest'
+        publisher: ubuntuImageMap[ubuntuVersion].publisher
+        offer: ubuntuImageMap[ubuntuVersion].offer
+        sku: ubuntuImageMap[ubuntuVersion].sku
+        version: ubuntuImageMap[ubuntuVersion].version
       }
       osDisk: {
         osType: 'Linux'
@@ -314,11 +339,17 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
     osProfile: {
       computerName: providerVmName
       adminUsername: adminUsername
-      adminPassword: adminPassword
-      customData: outboundOnly? base64(format(loadTextContent('ubuntu-outbound.yml'), consumer_pip.properties.ipAddress)) : base64(format(loadTextContent('ubuntu-tunnel.yml'), consumer_pip.properties.ipAddress))
-      linuxConfiguration: {
+      adminPassword: (!empty(adminPassword) ? adminPassword : json('null'))
+      //customData: outboundOnly ? base64(format(loadTextContent('ubuntu-outbound.yml'), consumer_pip.properties.ipAddress)) : base64(format(loadTextContent('ubuntu-squid.yml'), consumer_pip.properties.ipAddress))
+      customData: base64(format(loadTextContent(customDataMap['squid']), consumer_pip.properties.ipAddress))
+      linuxConfiguration: (!empty(adminPassword) ? {
         disablePasswordAuthentication: false
-        /*
+        provisionVMAgent: true
+        patchSettings: {
+          patchMode: 'ImageDefault'
+        }
+      } : {
+        disablePasswordAuthentication: true
         ssh: {
           publicKeys: [
             {
@@ -327,13 +358,11 @@ resource provider_vm 'Microsoft.Compute/virtualMachines@2021-07-01' = {
             }
           ]
         }
-        */
         provisionVMAgent: true
         patchSettings: {
           patchMode: 'ImageDefault'
         }
-      }
-      allowExtensionOperations: true
+      })
     }
     priority: 'Spot'
     evictionPolicy: 'Deallocate'
@@ -461,10 +490,15 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
     osProfile: {
       computerName: consumerVmName
       adminUsername: adminUsername
-      adminPassword: adminPassword      
-      linuxConfiguration: {
+      adminPassword: (!empty(adminPassword) ? adminPassword : json('null'))
+      linuxConfiguration: (!empty(adminPassword) ? {
         disablePasswordAuthentication: false
-        /*
+        provisionVMAgent: true
+        patchSettings: {
+          patchMode: 'ImageDefault'
+        }
+      } : {
+        disablePasswordAuthentication: true
         ssh: {
           publicKeys: [
             {
@@ -473,25 +507,24 @@ resource consumer_vm 'Microsoft.Compute/virtualMachines@2020-12-01' = {
             }
           ]
         }
-        */
         provisionVMAgent: true
         patchSettings: {
           patchMode: 'ImageDefault'
         }
-      }      
+      })
     }
     diagnosticsProfile: {
       bootDiagnostics: {
         enabled: true
         storageUri: consumer_diag_sa.properties.primaryEndpoints.blob
       }
-    }      
+    }
     storageProfile: {
       imageReference: {
-        publisher: 'Canonical'
-        offer: 'UbuntuServer'
-        sku: '18.04-LTS'
-        version: 'latest'
+        publisher: ubuntuImageMap[ubuntuVersion].publisher
+        offer: ubuntuImageMap[ubuntuVersion].offer
+        sku: ubuntuImageMap[ubuntuVersion].sku
+        version: ubuntuImageMap[ubuntuVersion].version
       }
       osDisk: {
         osType: 'Linux'
