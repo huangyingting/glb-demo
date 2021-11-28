@@ -1,0 +1,59 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+write_files:
+  - path: /usr/lib/networkd-dispatcher/routable.d/90-vxlan-up
+    owner: root:root
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # filename: 90-vxlan-up
+      # eth0 wan interface
+      # eth1 lan interface which receives vxlan from gateway load balancer      
+      if [ "$IFACE" == "eth1" ]; then
+        ip rule add from ${{IP_ADDRS%% *}} to 168.63.129.16 lookup glbrt
+        ip route add 168.63.129.16 via 10.110.1.1 dev $IFACE table glbrt   
+        ip link add glbint type vxlan id 800 remote 10.110.1.128 dstport 10800 dev $IFACE
+        ip link set glbint up
+        ip link add glbext type vxlan id 801 remote 10.110.1.128 dstport 10801 dev $IFACE
+        ip link set glbext up
+        ip link add name br0 type bridge 
+        ip link set dev br0 up
+        ip link set dev glbint master br0
+        ip link set dev glbext master br0
+        ip link set $IFACE mtu 4000
+        ip link set glbint mtu 3900
+        ip link set glbext mtu 3900
+        ip link set br0 mtu 3900        
+        sysctl -w net.ipv4.ip_forward=1
+        sysctl -w net.ipv4.conf.all.route_localnet=1
+        for i in /proc/sys/net/ipv4/conf/*/rp_filter; do
+          echo 0 > "$i"
+        done
+        ip route add {0} dev br0
+        ip neigh add {0} dev br0 lladdr 12:34:56:78:9a:bc
+        ebtables -t broute -A BROUTING -p IPv4 --ip-proto tcp --ip-src {0} --ip-dport 80 -j redirect --redirect-target DROP
+        iptables -t nat -A PREROUTING -p tcp -s {0} --dport 80 -j DNAT --to 127.0.0.1:8080
+        ebtables -t broute -A BROUTING -p IPv4 --ip-proto tcp --ip-src {0} --ip-dport 443 -j redirect --redirect-target DROP
+        iptables -t nat -A PREROUTING -p tcp -s {0} --dport 443 -j DNAT --to 127.0.0.1:8443
+      fi
+  - path: /usr/lib/networkd-dispatcher/off.d/90-vxlan-down
+    owner: root:root
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # filename: 90-vxlan-down
+      if [ "$IFACE" == "eth1" ]; then
+        ip link set br0 down
+        ip link delete br0 type bridge
+        ip link delete glbext type vxlan
+        ip link delete glbint type vxlan
+      fi
+  - path: /etc/iproute2/rt_tables
+    content: |
+      128 glbrt 
+    append: true
+runcmd:
+  - docker run -d --restart unless-stopped --net=host --name e2guardian huangyingting/e2guardian
