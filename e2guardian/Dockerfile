@@ -19,6 +19,7 @@ RUN apk add --no-cache \
 
 COPY start.sh /
 COPY e2guardian.conf /etc/e2guardian/
+COPY e2guardianf1.conf /etc/e2guardian/
 
 EXPOSE 8080
 EXPOSE 8443

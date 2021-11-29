@@ -43,7 +43,7 @@ param consumerVmSize string = 'Standard_A1_v2'
 param location string = 'southeastasia'
 
 
-var customDataFile = 'ubuntu-squid.yml'
+var customDataFile = 'ubuntu-e2guard.yml'
 
 var ubuntuImageMap = {
   '18.04': {
