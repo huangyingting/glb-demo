@@ -1,17 +1,26 @@
 set -e
 
-CHOWN=$(/usr/bin/which chown)
-E2GUARD=$(/usr/bin/which e2guardian)
-
 prepare_folders() {
-	echo "Preparing folders..."
-	mkdir -p /etc/e2guardian/private/
-	mkdir -p /etc/e2guardian/private/generatedcerts/
-	"$CHOWN" -R e2guard:e2guard /etc/e2guardian/private
+	echo "Preparing folders"
+
+    if [ ! -d "/etc/e2guardian/private" ]; then
+	    install -d -g "clamav" -m 775 -o "clamav" "/etc/e2guardian/private"
+    fi
+
+    if [ ! -d "/etc/e2guardian/private/generatedcerts" ]; then
+	    install -d -g "clamav" -m 775 -o "clamav" "/etc/e2guardian/private/generatedcerts"
+    fi
+
+    if [ ! -d "/run/clamav" ]; then
+	    install -d -g "clamav" -m 775 -o "clamav" "/run/clamav"
+    fi
+
+    # Assign ownership to the database directory, just in case it is a mounted volume
+    chown -R clamav:clamav /var/lib/clamav
 }
 
 create_cert() {
-	echo "Creating certificate..."
+	echo "Creating certificate"
     if [ ! -f /etc/e2guardian/private/ca.key ]; then
         openssl genrsa 2048 > /etc/e2guardian/private/ca.key
     fi
@@ -31,11 +40,56 @@ create_cert() {
 	
 }
 
+start_clamav() {
+	if [ ! -f "/var/lib/clamav/main.cvd" ]; then
+		echo "Updating initial database"
+		freshclam --foreground --stdout
+	fi
+
+    echo "Starting ClamAV"
+    if [ -S "/run/clamav/clamd.sock" ]; then
+        unlink "/run/clamav/clamd.sock"
+    fi
+    clamd --foreground &
+    while [ ! -S "/run/clamav/clamd.sock" ]; do
+        if [ "${_timeout:=0}" -gt "${CLAMD_STARTUP_TIMEOUT:=1800}" ]; then
+            echo
+            echo "Failed to start clamd"
+            exit 1
+        fi
+        printf "\r%s" "Socket for clamd not found yet, retrying (${_timeout}/${CLAMD_STARTUP_TIMEOUT}) ..."
+        sleep 1
+        _timeout="$((_timeout + 1))"
+    done
+    echo "socket found, clamd started."
+
+    echo "Starting Freshclamd"
+    freshclam \
+                --checks="${FRESHCLAM_CHECKS:-1}" \
+                --daemon \
+                --foreground \
+                --stdout \
+                --user="clamav" \
+                &
+
+}
+
+start_e2guard()
+{
+    echo "Starting e2guardian"
+    # To support clamav content scan
+    # addgroup clamav e2guard
+    chown -R clamav:clamav /var/log/e2guardian
+    exec e2guardian
+}
+
 run() {
-	echo "Starting e2guardian..."
 	prepare_folders
 	create_cert
-	exec "$E2GUARD"
+    start_clamav
+	start_e2guard
 }
 
 run
+
+exit 0
