@@ -33,22 +33,18 @@ ovs-ofctl add-flow br-glb "table=0,in_port=loc-int,arp,arp_tpa=${loc_int_net},ar
 ovs-ofctl add-flow br-glb "table=0,in_port=loc-int,icmp,nw_dst=${loc_int_net},icmp_type=8,icmp_code=0,actions=push:NXM_OF_ETH_SRC[],push:NXM_OF_ETH_DST[],pop:NXM_OF_ETH_SRC[],pop:NXM_OF_ETH_DST[],push:NXM_OF_IP_SRC[],push:NXM_OF_IP_DST[],pop:NXM_OF_IP_SRC[],pop:NXM_OF_IP_DST[],load:0xff->NXM_NX_IP_TTL[],load:0->NXM_OF_ICMP_TYPE[],IN_PORT"
 
 # Redirect glb outbound traffics to provider
-ovs-ofctl add-flow br-glb "table=0,in_port=glb-int,tcp, tp_dst=80,nw_src=${glb_int_ip},actions=ct(commit,zone=1,table=1,nat(src=${loc_int_nat_range}))"
-
-ovs-ofctl add-flow br-glb "table=0,in_port=loc-int,tcp,tp_src=80,nw_dst=${loc_int_net},actions=ct(nat,zone=1,table=1)"
-
+# Outbound
+ovs-ofctl add-flow br-glb "table=0,in_port=glb-int,tcp, tp_dst=80,nw_src=${glb_int_ip},actions=ct(commit,table=1,zone=1,nat(src=${loc_int_nat_range}))"
 ovs-ofctl add-flow br-glb "table=1,tcp,tp_dst=80,nw_src=${loc_int_net},ct_zone=1,actions=mod_dl_dst:${loc_int_port_mac},loc-int"
-
+# Inbound
+ovs-ofctl add-flow br-glb "table=0,in_port=loc-int,tcp,tp_src=80,nw_dst=${loc_int_net},actions=ct(table=1,zone=1,nat)"
 ovs-ofctl add-flow br-glb "table=1,in_port=loc-int,tcp,tcp_src=80,nw_dst=${glb_int_ip},ct_zone=1,actions=glb-int"
 
-# Try another nat 
-ovs-ofctl add-flow br-glb "table=0,in_port=glb-int,tcp,tp_dst=80,nw_src=${glb_int_ip},ct_state=-trk,actions=ct(zone=1,table=1)"
-
-ovs-ofctl add-flow br-glb "table=1,in_port=glb-int,tcp,tp_dst=80,nw_src=${loc_int_net},ct_state=+trk+new,ct_zone=1,actions=ct(commit,zone=1,table=1,nat(src=${loc_int_nat_range}),mod_dl_dst:${loc_int_port_mac},loc-int"
-
+# Try another stateful nat with ct_state
+# Outbound
+ovs-ofctl add-flow br-glb "table=0,in_port=glb-int,tcp,tp_dst=80,nw_src=${glb_int_ip},ct_state=-trk,actions=ct(table=1,zone=1,nat)"
+ovs-ofctl add-flow br-glb "table=1,in_port=glb-int,tcp,tp_dst=80,nw_src=${glb_int_ip},ct_state=+trk+new,ct_zone=1,actions=ct(commit,table=1,zone=1,nat(src=${loc_int_nat_range})),mod_dl_dst:${loc_int_port_mac},loc-int"
 ovs-ofctl add-flow br-glb "table=1, in_port=glb-int,tcp,tcp_dst=80,nw_src=${loc_int_net},ct_state=+trk+est,ct_zone=1,actions=mod_dl_dst:${loc_int_port_mac},loc-int"
-
-
-
-ovs-ofctl add-flow br-glb "table=0,in_port=loc-int,tcp,tp_src=80,nw_dst=${loc_int_net},ct_state=-trk,actions=ct(nat,zone=1,table=1)"
+# Inbound
+ovs-ofctl add-flow br-glb "table=0,in_port=loc-int,tcp,tp_src=80,nw_dst=${loc_int_net},ct_state=+trk,actions=ct(table=1,zone=1,nat)"
 ovs-ofctl add-flow br-glb "table=1,in_port=loc-int,tcp,tcp_src=80,nw_dst=${glb_int_ip},ct_zone=1,ct_state=+trk+est,actions=glb-int"
