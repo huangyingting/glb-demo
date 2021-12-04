@@ -28,7 +28,7 @@ ip link set loc-ext up
 ip route add ${loc_ext_net} dev loc-ext scope link
 
 # Reset flow table and iptables
-iptables -t nat -F
+# iptables -t nat -F
 iptables -t nat -D POSTROUTING -p tcp -s ${loc_int_net} --dport 80 -o eth0 -j MASQUERADE
 iptables -t nat -D PREROUTING -p tcp -s ${loc_ext_net} -d ${frontend_ip} --dport 80 -i loc-ext -j DNAT --to-destination 127.0.0.1:6080
 

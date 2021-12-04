@@ -1,0 +1,11 @@
+#!/bin/bash
+# filename: 90-vxlan-up
+# eth0 wan interface
+# eth1 lan interface which receives vxlan from gateway load balancer      
+if [ "$IFACE" == "eth1" ]; then
+  ip rule add from ${{IP_ADDRS%% *}} to 168.63.129.16 lookup glbrt
+  ip route add 168.63.129.16 via 10.110.1.1 dev $IFACE table glbrt   
+  ip link set $IFACE mtu 4000
+  sysctl -w net.ipv4.ip_forward=1
+  sysctl -w net.ipv4.conf.all.route_localnet=1
+fi

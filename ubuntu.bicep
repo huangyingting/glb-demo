@@ -42,8 +42,11 @@ param consumerVmSize string = 'Standard_A1_v2'
 @description('Location to deploy all the resources in')
 param location string = 'southeastasia'
 
+@description('Generate a random GUID for storage account name use')
+param guidValue string = newGuid()
 
-var customDataFile = 'ubuntu-e2guard.yml'
+
+var customDataFile = 'ubuntu-ovs.yml'
 
 var ubuntuImageMap = {
   '18.04': {
@@ -293,7 +296,7 @@ resource provider_pip_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
 }
 
 resource provider_diag_sa 'Microsoft.Storage/storageAccounts@2021-04-01' = {
-  name: uniqueString(providerVmName, deployment().name)
+  name: uniqueString(providerVmName, guidValue)
   location: location
   sku: {
     name: 'Standard_LRS'
@@ -467,7 +470,7 @@ resource consumer_nic 'Microsoft.Network/networkInterfaces@2021-03-01' = {
 }
 
 resource consumer_diag_sa 'Microsoft.Storage/storageAccounts@2021-04-01' = {
-  name: uniqueString(consumerVmName, deployment().name)
+  name: uniqueString(consumerVmName, guidValue)
   location: location
   sku: {
     name: 'Standard_LRS'
