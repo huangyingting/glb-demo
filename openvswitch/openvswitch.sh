@@ -88,3 +88,6 @@ ovs-ofctl add-flow br-glb "table=1,in_port=loc-ext,tcp,tcp_src=80,nw_src=${front
 # Troubleshooting
 #ovs-ofctl dump-flows br-glb
 #ovs-appctl ofproto/trace br-glb in_port=loc-int,tcp,tp_src=80,nw_dst=172.16.80.2,nw_src=8.8.8.8
+
+# Reserved public IP
+# 240.0.0.0/4	
