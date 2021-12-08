@@ -42,7 +42,7 @@ write_files:
     content: |
       #!/bin/bash
       # Parameters
-      frontend_ip="52.187.64.200"
+      frontend_ip="{0}"
       loc_int_net="172.16.70.0/24"
       loc_ext_net="172.16.80.0/24"
       loc_int_nat_range="172.16.70.20-172.16.70.120"
@@ -101,7 +101,7 @@ write_files:
       #!/bin/bash
       ovs-vsctl del-br br-glb
 runcmd:
-  - TEMP_DEB="$(mktemp)" && wget -O "$TEMP_DEB" 'https://github.com/huangyingting/glb-demo/releases/download/ovs/libopenvswitch-dev_2.16.1-1_amd64.deb' && dpkg -i "$TEMP_DEB" && rm -f "$TEMP_DEB"
+  - TEMP_DEB="$(mktemp)" && wget -O "$TEMP_DEB" 'https://github.com/huangyingting/glb-demo/releases/download/ovs/libopenvswitch_2.16.1-1_amd64.deb' && dpkg -i "$TEMP_DEB" && rm -f "$TEMP_DEB"
   - TEMP_DEB="$(mktemp)" && wget -O "$TEMP_DEB" 'https://github.com/huangyingting/glb-demo/releases/download/ovs/openvswitch-common_2.16.1-1_amd64.deb' && dpkg -i "$TEMP_DEB" && rm -f "$TEMP_DEB"
   - TEMP_DEB="$(mktemp)" && wget -O "$TEMP_DEB" 'https://github.com/huangyingting/glb-demo/releases/download/ovs/openvswitch-switch_2.16.1-1_amd64.deb' && dpkg -i "$TEMP_DEB" && rm -f "$TEMP_DEB"
   - systemctl daemon-reload && systemctl enable glb.service && systemctl start glb.service

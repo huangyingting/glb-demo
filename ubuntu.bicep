@@ -46,7 +46,7 @@ param location string = 'southeastasia'
 param guidValue string = newGuid()
 
 
-var customDataFile = 'ubuntu-ovs.yml'
+var customDataFile = 'ubuntu-mitm.yml'
 
 var ubuntuImageMap = {
   '18.04': {
