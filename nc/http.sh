@@ -1,0 +1,2 @@
+#!/bin/bash
+while true; do echo $'HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nServer: netcat!\r\n\r\n<!doctype html><html><body><h1>A webpage served by netcat</h1></body></html>' | nc -q 0 -l 6080; done
