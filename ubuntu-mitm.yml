@@ -21,7 +21,7 @@ write_files:
       fi
   - path: /etc/iproute2/rt_tables
     content: |
-      128 lbrt
+      128 glbrt
       172 mitmrt 
     append: true
   - path: /etc/systemd/system/mitm.service
@@ -80,29 +80,29 @@ write_files:
       # Direct to backend
       ovs-ofctl add-flow br-glb "table=0,in_port=mitm,tcp,tp_dst=6080,nw_src=${{mitm_ip}},nw_dst=${{frontend_ip}},actions=glb-int"
       ovs-ofctl add-flow br-glb "table=0,in_port=glb-int,tcp,tp_src=6080,nw_src=${{frontend_ip}},nw_dst=${{mitm_ip}},actions=mod_dl_dst:${{mitm_port_mac}},mitm"
-
-      cat <<EOF > /root/Caddyfile
+  - path: /usr/sbin/mitm-stop.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      frontend_ip="{0}"
+      mitm_ip="240.0.0.1"
+      mitm_net="0.0.0.0/0"
+      ip route del ${{frontend_ip}} dev mitm
+      ip rule del from ${{mitm_ip}} to 0.0.0.0/0 lookup mitmrt
+      ip route del ${{mitm_net}} dev mitm scope link table mitmrt
+      ovs-vsctl del-br br-glb
+  - path: /root/Caddyfile
+    content: |
       {{
         auto_https off
       }}
 
       :6080 {{
-        reverse_proxy http://$frontend_ip:6080
+        reverse_proxy http://{0}:6080
       }}
-      EOF
-      docker run -d --net=host --name caddy -v /root/Caddyfile:/etc/caddy/Caddyfile caddy:alpine
-  - path: /usr/sbin/mitm-stop.sh
-    permissions: '0755'
-    content: |
-      #!/bin/bash
-      docker stop caddy
-      docker rm caddy
-      ip route delete ${{frontend_ip}} dev mitm
-      ip rule delete from ${{mitm_ip}} to 0.0.0.0/0 lookup mitmrt
-      ip route delete ${{mitm_net}} dev mitm scope link table mitmrt
-      ovs-vsctl del-br br-glb
 runcmd:
   - TEMP_DEB="$(mktemp)" && wget -O "$TEMP_DEB" 'https://github.com/huangyingting/glb-demo/releases/download/ovs/libopenvswitch_2.16.1-1_amd64.deb' && dpkg -i "$TEMP_DEB" && rm -f "$TEMP_DEB"
   - TEMP_DEB="$(mktemp)" && wget -O "$TEMP_DEB" 'https://github.com/huangyingting/glb-demo/releases/download/ovs/openvswitch-common_2.16.1-1_amd64.deb' && dpkg -i "$TEMP_DEB" && rm -f "$TEMP_DEB"
   - TEMP_DEB="$(mktemp)" && wget -O "$TEMP_DEB" 'https://github.com/huangyingting/glb-demo/releases/download/ovs/openvswitch-switch_2.16.1-1_amd64.deb' && dpkg -i "$TEMP_DEB" && rm -f "$TEMP_DEB"
   - systemctl daemon-reload && systemctl enable mitm.service && systemctl start mitm.service
+  - docker run -d --restart unless-stopped --net=host --name caddy -v /root/Caddyfile:/etc/caddy/Caddyfile caddy:alpine

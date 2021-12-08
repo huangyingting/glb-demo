@@ -406,6 +406,21 @@ resource consumer_nsg 'Microsoft.Network/networkSecurityGroups@2021-03-01' = {
           direction: 'Inbound'
         }
       }
+      {
+        name: 'Allow-6080'
+        properties: {
+          description: 'Allow-6080'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '6080'
+          sourceAddressPrefix: consumerNsgSourceAddressPrefix
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 220
+          direction: 'Inbound'
+        }
+      }
+
     ]
   }
 }
