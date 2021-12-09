@@ -413,7 +413,7 @@ resource consumer_nsg 'Microsoft.Network/networkSecurityGroups@2021-03-01' = {
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '6080'
-          sourceAddressPrefix: consumerNsgSourceAddressPrefix
+          sourceAddressPrefix: '*'
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 220
