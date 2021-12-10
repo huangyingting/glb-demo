@@ -5,7 +5,7 @@ update_suricata_rules() {
 	echo "Update suricata rules"
     suricata-update
     crond -b
-    crontab /etc/crontabs/suricata-update-cron
+    crontab /etc/crontabs/suricata-cronjobs
 }
 
 start_suricata()
