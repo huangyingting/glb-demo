@@ -8,6 +8,10 @@ update_suricata_rules() {
     crontab /etc/crontabs/suricata-cronjobs
 }
 
+start_tail() {
+    tail -F /var/log/suricata/fast.log > /proc/1/fd/1 &
+}
+
 start_suricata()
 {    
     if [ "${1#-}" != "$1" ]; then
@@ -21,4 +25,5 @@ start_suricata()
 }
 
 update_suricata_rules
+start_tail
 start_suricata "$@"
